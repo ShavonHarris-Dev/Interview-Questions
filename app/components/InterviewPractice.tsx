@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
 
 interface Question {
@@ -10,6 +10,11 @@ interface Question {
   }
   
   type QuestionType = 'All' | 'Behavioral' | 'Technical' | 'GitHub';
+
+  type SavedAnswers = {
+    [key: number]: string;
+  };
+  
   
   interface Tips {
     Behavioral: string[];
@@ -141,10 +146,42 @@ const InterviewPractice: React.FC = () => {
   const [practiced, setPracticed] = useState<Set<number>>(new Set());
   const [mode, setMode] = useState<'question' | 'tips'>('question');
   const [questionType, setQuestionType] = useState<QuestionType>('All');
+  const [answers, setAnswers] = useState<SavedAnswers>({});
 
   const filteredQuestions = questionType === 'All' 
-    ? allQuestions 
-    : allQuestions.filter(q => q.type === questionType);
+  ? allQuestions 
+  : allQuestions.filter(q => q.type === questionType);
+
+  useEffect(() => {
+    const savedAnswers = localStorage.getItem('interviewAnswers');
+    const savedPracticed = localStorage.getItem('practicedQuestions');
+    
+    if (savedAnswers) {
+      setAnswers(JSON.parse(savedAnswers));
+    }
+    
+    if (savedPracticed) {
+      setPracticed(new Set(JSON.parse(savedPracticed)));
+    }
+  }, []);
+
+  // Save answers to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('interviewAnswers', JSON.stringify(answers));
+  }, [answers]);
+
+  // Save practiced questions to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('practicedQuestions', JSON.stringify([...practiced]));
+  }, [practiced]);
+
+  const handleAnswerChange = (questionId: number, answer: string) => {
+    setAnswers(prev => ({
+      ...prev,
+      [questionId]: answer
+    }));
+  };
+
 
   const startTimer = (): void => {
     setShowTimer(true);
@@ -166,6 +203,9 @@ const InterviewPractice: React.FC = () => {
 
   const resetPracticed = (): void => {
     setPracticed(new Set());
+    setAnswers({});
+    localStorage.removeItem('interviewAnswers');
+    localStorage.removeItem('practicedQuestions');
   };
 
   const formatTime = (seconds: number): string => {
@@ -180,17 +220,17 @@ const InterviewPractice: React.FC = () => {
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-2xl font-bold text-gray-900">Interview Practice</h1>
           {showTimer && (
-            <span className={`text-xl font-bold ${timeLeft < 30 ? 'text-red-500' : 'text-blue-600'}`}>
+            <span className={`text-xl ${timeLeft < 30 ? 'text-red-500' : ''}`}>
               {formatTime(timeLeft)}
             </span>
           )}
         </div>
         <div className="flex gap-2 flex-wrap">
-          {['All', 'Behavioral', 'Technical', 'GitHub'].map((type) => (
+          {['All', 'Behavioral', 'Technical', 'GitHub'].map(type => (
             <button
               key={type}
               onClick={() => {
-                setQuestionType(type as QuestionType);
+                setQuestionType(type as typeof questionType);
                 setCurrentQuestion(0);
               }}
               className={`px-4 py-2 rounded-md transition-colors ${
@@ -209,6 +249,18 @@ const InterviewPractice: React.FC = () => {
         <div className="min-h-32 bg-gray-50 p-4 rounded-lg">
           <div className="text-xl mb-4 text-gray-900">
             {filteredQuestions[currentQuestion].question}
+          </div>
+          
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Your Answer:
+            </label>
+            <textarea
+              value={answers[filteredQuestions[currentQuestion].id] || ''}
+              onChange={(e) => handleAnswerChange(filteredQuestions[currentQuestion].id, e.target.value)}
+              className="w-full h-32 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-lg"
+              placeholder="Type your answer here..."
+            />
           </div>
           
           {mode === 'tips' && (
@@ -270,7 +322,7 @@ const InterviewPractice: React.FC = () => {
             )}
             <button
               onClick={resetPracticed}
-             className="flex items-center px-3 py-1 text-sm bg-gray-100 text-gray-900 rounded-md hover:bg-gray-200 transition-colors"
+              className="flex items-center px-3 py-1 text-sm bg-gray-100 text-gray-900 rounded-md hover:bg-gray-200 transition-colors"
             >
               <RotateCcw className="w-4 h-4 mr-1" /> Reset Progress
             </button>
